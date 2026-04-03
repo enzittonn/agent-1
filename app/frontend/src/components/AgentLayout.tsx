@@ -12,6 +12,7 @@
 
 import type { AgentState } from "@livekit/components-react";
 import { AgentAudioVisualizerAura } from "@/components/agents-ui/agent-audio-visualizer-aura";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Maps our internal agent status to LiveKit's AgentState visual states.
 // 'thinking' gives the pulsing/fast animation during LLM execution.
@@ -39,13 +40,17 @@ export function AgentLayout({ agentStatus, children, footer }: Props) {
       <header className="sticky top-0 z-10 h-16 border-b border-neutral-200 dark:border-neutral-800
                          bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm
                          px-6 py-3 flex items-center gap-4">
-        {/* Aura visualizer — decorative in Phase 3, audio-reactive in Phase 2 */}
-        <AgentAudioVisualizerAura
-          state={AURA_STATE[agentStatus] ?? "idle"}
-          size="sm"
-          themeMode="dark"
-          // audioTrack={track}  ← wire in Phase 2 once LiveKit room is connected
-        />
+        {/* Aura visualizer — wrapped in ErrorBoundary so a WebGL failure
+             (e.g. Zen browser blocks canvas.getContext('webgl') via
+             privacy.resistFingerprinting) can't crash the whole app tree. */}
+        <ErrorBoundary fallback={<div style={{ width: 48, height: 48 }} />}>
+          <AgentAudioVisualizerAura
+            state={AURA_STATE[agentStatus] ?? "idle"}
+            size="sm"
+            themeMode="dark"
+            // audioTrack={track}  ← wire in Phase 2 once LiveKit room is connected
+          />
+        </ErrorBoundary>
         <span className="font-semibold text-base tracking-tight">FRIDAY</span>
         <span className="ml-auto text-xs text-neutral-400 capitalize tabular-nums">
           {agentStatus}

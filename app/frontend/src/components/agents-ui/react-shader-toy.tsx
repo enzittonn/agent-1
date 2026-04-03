@@ -510,11 +510,21 @@ export function ReactShaderToy({
 
   const initWebGL = () => {
     if (!canvasRef.current) return;
-    glRef.current = (canvasRef.current.getContext('webgl', contextAttributes) ||
-      canvasRef.current.getContext(
-        'experimental-webgl',
-        contextAttributes,
-      )) as WebGLRenderingContext | null;
+    // canvas.getContext('webgl') can throw (not just return null) in browsers
+    // with privacy.resistFingerprinting enabled (e.g. Zen, hardened Firefox).
+    // Catch the exception and report via onError so this component degrades
+    // gracefully instead of crashing — the ErrorBoundary above us catches too,
+    // but stopping the throw here gives a cleaner console message.
+    try {
+      glRef.current = (canvasRef.current.getContext('webgl', contextAttributes) ||
+        canvasRef.current.getContext(
+          'experimental-webgl',
+          contextAttributes,
+        )) as WebGLRenderingContext | null;
+    } catch (err) {
+      onError?.(`WebGL context creation failed (browser may block canvas fingerprinting): ${String(err)}`);
+      return;
+    }
     glRef.current?.getExtension('OES_standard_derivatives');
     glRef.current?.getExtension('EXT_shader_texture_lod');
   };

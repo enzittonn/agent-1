@@ -16,14 +16,26 @@ import { ComponentRenderer } from "@/components/registry";
 
 export default function App() {
   const [task, setTask] = useState("");
-  const { state, run } = useAgentStream();
+  const { state, run, threadId, resetThread } = useAgentStream();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = task.trim();
     if (!trimmed || state.status === "running") return;
     setTask("");  // clear immediately so the field feels responsive
-    run(trimmed);
+    // run() returns a Promise — without .catch(), a rejection (e.g. fetch throws
+    // before the response body is readable) is silently swallowed and status stays
+    // "running" forever. Catch it here and let useAgentStream's internal handler
+    // take precedence; this is a last-resort safety net.
+    run(trimmed).catch((err: unknown) => {
+      console.error("[App] unhandled run() rejection:", err);
+    });
+  };
+
+  // Start a new isolated conversation: forget the thread_id and wipe the UI.
+  const handleNewConversation = () => {
+    resetThread();
+    setTask("");
   };
 
   return (
@@ -43,6 +55,21 @@ export default function App() {
                        placeholder:text-neutral-400 focus:outline-none focus:ring-2
                        focus:ring-blue-500 disabled:opacity-50 transition"
           />
+          {/* New conversation button — only shown when a thread is active.
+               Pressing it mints a fresh thread_id on the next submit. */}
+          {threadId && state.status !== "running" && (
+            <button
+              type="button"
+              onClick={handleNewConversation}
+              className="rounded-lg border border-neutral-200 dark:border-neutral-700
+                         bg-white dark:bg-neutral-900 px-4 py-2.5 text-sm
+                         text-neutral-600 dark:text-neutral-400
+                         hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+              title="Start a new conversation (forgets history)"
+            >
+              New
+            </button>
+          )}
           <button
             type="submit"
             disabled={state.status === "running" || !task.trim()}
